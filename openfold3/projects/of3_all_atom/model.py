@@ -390,6 +390,43 @@ class OpenFold3(nn.Module):
                 device=si_input.device,
             )
 
+            # RGI: build a per-structure CombinedRestraints from the (per-query)
+            # restraints_config + AtomArray, both carried as non-tensor pseudo-
+            # features. None when RGI is unused. dict_multimap wraps them in a
+            # one-element list per batch item (inference batch=1), so unwrap.
+            combined_restraints = None
+            _rc = batch.get("restraints_config")
+            if isinstance(_rc, list):
+                _rc = _rc[0] if _rc else None
+            if _rc:
+                from rgi_utils.combined import CombinedRestraints
+                from rgi_utils.openfold3.adapter import Openfold3Adapter
+
+                _aa = batch["atom_array"]
+                if isinstance(_aa, list):
+                    _aa = _aa[0]
+                # OpenFold zeroes atom_array.coord; supply the real reference
+                # conformer coords (ref_pos, [*, N_atom, 3]) so conformer restraint
+                # targets are built from real geometry. Collapse leading batch dims
+                # to (N_atom, 3) on CPU for the adapter.
+                _ref = batch.get("ref_pos")
+                _ref_coords = None
+                if _ref is not None:
+                    _r = _ref.detach()
+                    while _r.dim() > 2:
+                        _r = _r[0]
+                    _ref_coords = _r.float().cpu().numpy()
+                combined_restraints = CombinedRestraints()
+                combined_restraints.setup(
+                    Openfold3Adapter(
+                        _aa,
+                        int(batch["atom_mask"].shape[-1]),
+                        ref_coords=_ref_coords,
+                    ),
+                    nbatch=no_rollout_samples,
+                    config=_rc,
+                )
+
             atom_positions_predicted = self.sample_diffusion(
                 batch=batch,
                 si_input=si_input,
@@ -404,7 +441,14 @@ class OpenFold3(nn.Module):
                 use_cueq_triangle_kernels=mode_mem_settings.use_cueq_triangle_kernels,
                 use_lma=mode_mem_settings.use_lma,
                 _mask_trans=True,
+                combined_restraints=combined_restraints,
             )
+
+            if combined_restraints is not None:
+                _c = atom_positions_predicted
+                combined_restraints.finalize(
+                    _c.reshape(-1, _c.shape[-2], _c.shape[-1]), no_rollout_steps
+                )
 
             self.clear_autocast_cache()
 

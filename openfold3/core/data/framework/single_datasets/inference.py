@@ -296,6 +296,9 @@ class InferenceDataset(Dataset):
         # TODO: At some point, think about a cleaner way to pass this through the model
         # runner than as a pseudo-feature
         features["atom_array"] = preprocessed_atom_array
+        # restraint-guided inference config (per-query), carried alongside the
+        # atom_array into the diffusion loop; None when RGI is unused.
+        features["restraints_config"] = query.restraints_config
         n_tokens = get_token_count(preprocessed_atom_array)
 
         # Target structure and conformer features

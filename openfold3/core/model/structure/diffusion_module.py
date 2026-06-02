@@ -333,6 +333,7 @@ class SampleDiffusion(nn.Module):
         use_lma: bool = False,
         use_high_precision_attention: bool = False,
         _mask_trans: bool = True,
+        combined_restraints=None,
     ) -> torch.Tensor:
         """
         Args:
@@ -407,6 +408,17 @@ class SampleDiffusion(nn.Module):
                 use_high_precision_attention=use_high_precision_attention,
                 _mask_trans=_mask_trans,
             )
+
+            # RGI: minimize restraint energy on the denoised x0 prediction before
+            # the Euler update. Gate on the pre-step (larger) level
+            # noise_schedule[tau] (matches protenix c_tau_last / boltz sigma_tm).
+            # xl_denoised is (batch, samples, num_atoms, 3); reshape to flat
+            # (-1, num_atoms, 3) for the optimizer, then back.
+            if combined_restraints is not None:
+                _shape = xl_denoised.shape
+                _flat = xl_denoised.reshape(-1, _shape[-2], _shape[-1])
+                combined_restraints.minimize(_flat, tau, float(noise_schedule[tau]))
+                xl_denoised = _flat.reshape(_shape)
 
             # TODO: Changed from SI, xl_noisy used instead of xl as in EDM paper
             #  Verify that this is working correctly

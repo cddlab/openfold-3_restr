@@ -118,6 +118,9 @@ class Query(BaseModel):
     use_paired_msas: bool = True
     use_main_msas: bool = True
     covalent_bonds: list[Bond] | None = None
+    # restraint-guided inference: one rgi_utils restraints_config dict (distance +
+    # conformer) carried per-query into the diffusion loop. None disables RGI.
+    restraints_config: dict | None = None
 
 
 class InferenceQuerySet(BaseModel):
