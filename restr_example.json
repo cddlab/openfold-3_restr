@@ -14,15 +14,14 @@
         }
       ],
       "restraints_config": {
-        "_comment": "rgi_utils restraint-guided inference (distance + ligand conformer). RUN: export OPENFOLD_CACHE=$HOME/.openfold3; run_openfold predict --query-json restr_example.json --output-dir out --num-diffusion-samples 2 --use-msa-server false --use-templates false . start_sigma: a restraint is active only when sigma<=start_sigma; settable globally (here), per distance entry, and once for all conformer terms (per-entry overrides global). '_comment' keys are ignored by the parser.",
+        "_comment": "rgi_utils restraint-guided inference (distance + ligand conformer). RUN: export OPENFOLD_CACHE=$HOME/.openfold3; run_openfold predict --query-json restr_example.json --output-dir out --num-diffusion-samples 2 --use-msa-server false --use-templates false . start_sigma: a restraint is active only when sigma<=start_sigma; OPTIONAL per distance entry and once in conformer_restraints_config (omit -> active every step); no top-level/global start_sigma. '_comment' keys are ignored by the parser.",
         "verbose": true,
         "gpu": true,
         "max_iter": 1000,
         "method": "CG",
-        "start_sigma": 99999999,
         "distance_restraints_config": [
           {
-            "_comment": "COM distance pulled to target_distance. type: harmonic{target_distance} | flat-bottomed{target_distance1,target_distance2} | flat-bottomed1 | flat-bottomed2. resid = per-chain 1-based ordinal; qualify protein groups with 'chain A and (...)' so a bare resid range does not also match the ligand (chain B). start_sigma here overrides the global for this restraint.",
+            "_comment": "COM distance pulled to target_distance. type: harmonic{target_distance} | flat-bottomed{target_distance1,target_distance2} | flat-bottomed1 | flat-bottomed2. resid = per-chain 1-based ordinal; qualify protein groups with 'chain A and (...)' so a bare resid range does not also match the ligand (chain B). start_sigma is optional on each distance entry (omit -> every step).",
             "atom_selection1": "chain A and ((resid 5 to 84) or (resid 186 to 224))",
             "atom_selection2": "chain A and (resid 90 to 180)",
             "start_sigma": 99999999,
