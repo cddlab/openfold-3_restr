@@ -14,7 +14,7 @@
         }
       ],
       "restraints_config": {
-        "_comment": "rgi_utils restraint-guided inference (distance + ligand conformer). RUN: export OPENFOLD_CACHE=$HOME/.openfold3; run_openfold predict --query-json restr_example.json --output-dir out --num-diffusion-samples 2 --use-msa-server false --use-templates false . start_sigma: a restraint is active only when sigma<=start_sigma; OPTIONAL per distance entry and once in conformer_restraints_config (omit -> active every step); no top-level/global start_sigma. '_comment' keys are ignored by the parser.",
+        "_comment": "rgi_utils restraint-guided inference (distance + ligand conformer). RUN: export OPENFOLD_CACHE=$HOME/.openfold3; run_openfold predict --query-json restr_example.json --output-dir out --num-diffusion-samples 2 --use-msa-server false --use-templates false . gpu = torch device (true=GPU, false=CPU; set backend:numpy/jax to override). start_sigma: a restraint is active only when sigma<=start_sigma; OPTIONAL per distance entry and once in conformer_restraints_config (omit -> active every step); no top-level/global start_sigma. '_comment' keys are ignored by the parser.",
         "verbose": true,
         "gpu": true,
         "max_iter": 1000,
