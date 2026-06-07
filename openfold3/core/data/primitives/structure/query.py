@@ -211,6 +211,12 @@ def processed_reference_molecule_from_atom_array(
     # Convert to RDKit mol
     mol = to_mol(atom_array, kekulize=True)
     Chem.SanitizeMol(mol)
+    # Capture the CCD ideal conformer's chirality into atom chiral tags BEFORE removing
+    # the conformer. biotite's to_mol does not perceive stereochemistry, so without this
+    # the mol reaches ETKDG (processed_reference_molecule_from_mol) with no chiral tags
+    # and EmbedMolecule picks a RANDOM enantiomer -> wrong-handed ref_pos. Training uses
+    # the SDF path (tags present), so this aligns inference with training.
+    Chem.AssignStereochemistryFrom3D(mol)
     mol.RemoveConformer(0)
 
     return processed_reference_molecule_from_mol(

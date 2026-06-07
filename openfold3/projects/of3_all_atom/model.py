@@ -446,6 +446,15 @@ class OpenFold3(nn.Module):
 
             if combined_restraints is not None:
                 _c = atom_positions_predicted
+                # Per-step minimize tightens the denoised x0, but the integrator's
+                # step_scale extrapolation leaves the FINAL coords off the conformer
+                # target. Polish the output once at sigma=0 so the restraint is realised
+                # on the returned coords (conformer terms adjust only internal geometry
+                # + VdW, so the pose is preserved).
+                _cf = _c.reshape(-1, _c.shape[-2], _c.shape[-1])
+                combined_restraints.minimize(_cf, no_rollout_steps, 0.0)
+                atom_positions_predicted = _cf.reshape(_c.shape)
+                _c = atom_positions_predicted
                 combined_restraints.finalize(
                     _c.reshape(-1, _c.shape[-2], _c.shape[-1]), no_rollout_steps
                 )
