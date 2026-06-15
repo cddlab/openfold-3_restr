@@ -1,3 +1,8 @@
+see [rgi_utils](https://github.com/cddlab/rgi_utils) for more information.
+
+<details>
+<summary>Original README</summary>
+
 # OpenFold3-preview
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/predictions_combined_dark.png">
@@ -118,3 +123,5 @@ If you use OpenFold3-preview in your research, please cite the following:
 ```
 
 Any work that cites OpenFold3-preview should also cite [AlphaFold3](https://www.nature.com/articles/s41586-024-07487-w).
+
+</details>
