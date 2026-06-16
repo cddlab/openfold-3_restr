@@ -74,6 +74,10 @@ class Chain(BaseModel):
         Annotated[list[str | None], BeforeValidator(_ensure_list)] | None
     ) = None
     sdf_file_path: FilePath | None = None
+    # RGI per-ligand conformer_restraints opt-in (default off). Set true on a ligand chain
+    # to enable its bond/angle/chiral/cistrans/vdw conformer restraints; threaded into the
+    # AtomArray as a per-atom annotation in query.py and read by the rgi openfold3 adapter.
+    conformer_restraints: bool = False
 
     @field_serializer("molecule_type", return_type=str)
     def serialize_enum_name(self, v: MoleculeType, _info):

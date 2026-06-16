@@ -634,6 +634,18 @@ def structure_with_ref_mols_from_query(query: Query) -> StructureWithReferenceMo
                 np.repeat(entity_to_id[representation], len(segment_atom_array)),
             )
 
+            # RGI per-ligand conformer_restraints opt-in (default off; set
+            # conformer_restraints: true on the input chain). Set on EVERY segment, not
+            # just ligands: biotite drops an annotation missing from any concatenated
+            # array, so a polymer segment without it would wipe the ligand's. The rgi
+            # openfold3 adapter reads it for ligand confs; polymers carry it but never
+            # become ligand confs. Mirrors protenix json_to_feature.
+            conf_rest = bool(getattr(chain, "conformer_restraints", False))
+            segment_atom_array.set_annotation(
+                "conformer_restraints",
+                np.full(len(segment_atom_array), conf_rest, dtype=bool),
+            )
+
             # Append atom array to end
             if atom_array is None:
                 atom_array = segment_atom_array
