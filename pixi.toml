@@ -160,9 +160,11 @@ openfold3-msa = { no-default-feature = true, features = [
 
 [feature.openfold3-editable.pypi-dependencies]
 openfold3 = { path = ".", editable = true }
+rgi-utils = { git = "https://github.com/cddlab/rgi_utils.git" }
 
 [feature.openfold3-editable-full.pypi-dependencies]
 openfold3 = { path = ".", editable = true, extras = ["deepspeed", "dev"] }
+rgi-utils = { git = "https://github.com/cddlab/rgi_utils.git" }
 
 [feature.not-in-pypi.target.linux.dependencies]
 hmmer = "*"
