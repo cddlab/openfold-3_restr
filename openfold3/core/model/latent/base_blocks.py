@@ -20,7 +20,6 @@ Includes MSABlock and PairBlock, where the MSABlock is used to define the blocks
 the EvoformerStack, ExtraMSAStack, and MSAModule.
 """
 
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
@@ -40,6 +39,7 @@ from openfold3.core.model.layers.triangular_multiplicative_update import (
     TriangleMultiplicationOutgoing,
 )
 from openfold3.core.model.primitives import DropoutRowwise
+from openfold3.core.model.utils import assert_sole_holder
 from openfold3.core.utils.tensor_utils import add
 
 
@@ -176,7 +176,7 @@ class MSABlock(nn.Module, ABC):
         if _offload_inference and inplace_safe:
             # m: GPU, z: CPU
             del m, z
-            assert sys.getrefcount(input_tensors[1]) == 2
+            assert_sole_holder(input_tensors[1], in_container=True)
             input_tensors[1] = input_tensors[1].cpu()
             m, z = input_tensors
 
@@ -187,7 +187,7 @@ class MSABlock(nn.Module, ABC):
         if _offload_inference and inplace_safe:
             # m: GPU, z: GPU
             del m, z
-            assert sys.getrefcount(input_tensors[0]) == 2
+            assert_sole_holder(input_tensors[0], in_container=True)
             input_tensors[1] = input_tensors[1].to(opm.device)
             m, z = input_tensors
 

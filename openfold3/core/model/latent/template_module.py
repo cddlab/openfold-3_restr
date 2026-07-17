@@ -21,7 +21,6 @@ These modules embed templates into pair embeddings. Note that this includes the 
 feature embedding functions in openfold3.core.model.feature_embedders.
 """
 
-import sys
 from functools import partial
 
 import torch
@@ -34,12 +33,9 @@ from openfold3.core.model.feature_embedders.template_embedders import (
 )
 from openfold3.core.model.latent.base_blocks import PairBlock
 from openfold3.core.model.primitives import LayerNorm, Linear
+from openfold3.core.model.utils import assert_sole_holder
 from openfold3.core.utils.checkpointing import checkpoint_blocks, checkpoint_section
-from openfold3.core.utils.chunk_utils import (
-    DEFAULT_MAX_CHUNK_SIZE,
-    FLASH_MAX_CHUNK_SIZE,
-    ChunkSizeTuner,
-)
+from openfold3.core.utils.chunk_utils import ChunkSizeTuner
 from openfold3.core.utils.tensor_utils import add
 
 
@@ -391,23 +387,19 @@ class TemplatePairStack(nn.Module):
                 or use_triton_triangle_kernels
                 or use_deepspeed_evo_attention
             )
-            max_chunk_size = (
-                FLASH_MAX_CHUNK_SIZE if use_flash_kernels else DEFAULT_MAX_CHUNK_SIZE
-            )
             tuned_chunk_size = self.chunk_size_tuner.tune_chunk_size(
                 representative_fn=blocks[0],
                 args=(t.clone(),),
-                min_chunk_size=chunk_size,
-                max_chunk_size=max_chunk_size,
+                max_chunk_size=chunk_size,
             )
             attn_chunk = (
-                tuned_chunk_size if use_flash_kernels else (tuned_chunk_size // 4)
+                tuned_chunk_size if use_flash_kernels else max(1, tuned_chunk_size // 4)
             )
             blocks = [
                 partial(
                     b,
                     chunk_size=tuned_chunk_size,
-                    _attn_chunk_size=max(chunk_size, attn_chunk),
+                    _attn_chunk_size=attn_chunk,
                 )
                 for b in blocks
             ]
@@ -580,11 +572,7 @@ class TemplateEmbedderAllAtom(nn.Module):
                 _mask_trans=_mask_trans,
             )
 
-            # For python < 3.14, sys.getrefcount generates its own reference
-            # This issue is resolved in python 3.14, and so below is a workaround
-            # See https://docs.python.org/3.14/whatsnew/3.14.html#whatsnew314-refcount
-            # and https://github.com/root-project/root/issues/18988 for more details
-            assert sys.getrefcount(t) + int(sys.version_info >= (3, 14)) == 2
+            assert_sole_holder(t)
 
             t_out[..., i : i + 1, :, :, :] = t.cpu()
 

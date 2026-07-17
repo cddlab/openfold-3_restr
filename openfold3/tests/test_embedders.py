@@ -28,7 +28,7 @@ from openfold3.core.model.latent.msa_module import MSAModuleStack
 from openfold3.core.model.latent.template_module import TemplateEmbedderAllAtom
 from openfold3.projects.of3_all_atom.project_entry import OF3ProjectEntry
 from openfold3.tests.config import consts
-from openfold3.tests.data_utils import random_asym_ids, random_of3_features
+from openfold3.tests.utils.data_utils import random_asym_ids, random_of3_features
 
 
 class TestInputEmbedderAllAtom:
@@ -189,7 +189,7 @@ class TestTemplateEmbedders:
 
         assert emb.shape == (batch_size, n_templ, n_token, n_token, c_t)
 
-    def test_template_module_offload(self, template_batch):
+    def test_template_module_offload(self, template_batch, seeded_rng):
         batch_size = template_batch["batch_size"]
         n_token = template_batch["n_token"]
         batch = template_batch["batch"]
@@ -213,7 +213,8 @@ class TestTemplateEmbedders:
                 batch=batch, z=z, pair_mask=pair_mask, offload_inference=True
             )
 
-        assert torch.allclose(t_no_offload, t_offload)
+        # Batched vs. per-template offload paths round differently; compare within tolerance
+        assert torch.allclose(t_no_offload, t_offload, atol=1e-5, rtol=1e-4)
 
 
 class TestMSAModuleStack:

@@ -15,7 +15,6 @@
 import contextlib
 import json
 import logging
-import operator
 import os
 import shutil
 import sys
@@ -26,7 +25,6 @@ from typing import Any
 
 import ml_collections as mlc
 import pytorch_lightning as pl
-import torch
 import wandb
 from lightning_fabric.utilities.rank_zero import _get_rank
 from pydantic import BaseModel
@@ -58,6 +56,7 @@ from openfold3.entry_points.validator import (
     TrainingExperimentConfig,
     generate_seeds,
 )
+from openfold3.projects.of3_all_atom import safe_globals  # noqa: F401
 from openfold3.projects.of3_all_atom.config.dataset_configs import (
     InferenceDatasetSpec,
     InferenceJobConfig,
@@ -66,24 +65,9 @@ from openfold3.projects.of3_all_atom.config.dataset_configs import (
 from openfold3.projects.of3_all_atom.config.inference_query_format import (
     InferenceQuerySet,
 )
-from openfold3.projects.of3_all_atom.model import OpenFold3
 from openfold3.projects.of3_all_atom.project_entry import OF3ProjectEntry
 
 logger = logging.getLogger(__name__)
-
-# # Add OpenFold3 model to safe models to load
-torch.serialization.add_safe_globals(
-    [
-        OpenFold3,
-        mlc.ConfigDict,
-        mlc.FieldReference,
-        int,
-        bool,
-        float,
-        operator.add,
-        mlc.config_dict._Op,
-    ]
-)
 
 
 def rank_zero_only(fn):
@@ -559,8 +543,8 @@ class InferenceExperimentRunner(ExperimentRunner):
         experiment_config,
         num_diffusion_samples: int | None = None,
         num_model_seeds: int | None = None,
-        use_msa_server: bool = False,
-        use_templates: bool = False,
+        use_msa_server: bool | None = None,
+        use_templates: bool | None = None,
         output_dir: Path | None = None,
     ):
         super().__init__(experiment_config)
@@ -607,10 +591,15 @@ class InferenceExperimentRunner(ExperimentRunner):
         num_diffusion_samples: int | None,
         num_model_seeds: int | None,
         output_dir: Path | None,
-        use_msa_server: bool = False,
-        use_templates: bool = False,
+        use_msa_server: bool | None = None,
+        use_templates: bool | None = None,
     ):
-        """Updates configuration given command line args."""
+        """Updates configuration given command line args.
+
+        ``use_msa_server`` and ``use_templates`` are tri-state: ``None`` means the
+        argument was not provided, so the runner yaml / config value is left as-is.
+        An explicit ``True`` or ``False`` overrides the yaml / config value.
+        """
         if output_dir:
             self.experiment_config.experiment_settings.output_dir = output_dir
 
@@ -622,11 +611,11 @@ class InferenceExperimentRunner(ExperimentRunner):
             start_seed = 42
             self.seeds = generate_seeds(start_seed, num_model_seeds)
 
-        if use_msa_server:
-            self.experiment_config.experiment_settings.use_msa_server = True
+        if use_msa_server is not None:
+            self.experiment_config.experiment_settings.use_msa_server = use_msa_server
 
-        if use_templates:
-            self.experiment_config.experiment_settings.use_templates = True
+        if use_templates is not None:
+            self.experiment_config.experiment_settings.use_templates = use_templates
 
     @cached_property
     def use_msa_server(self) -> bool:

@@ -25,9 +25,6 @@ from openfold3.core.utils.tensor_utils import (
     tree_map,
 )
 
-DEFAULT_MAX_CHUNK_SIZE = 512
-FLASH_MAX_CHUNK_SIZE = 1024
-
 
 def _fetch_dims(tree):
     shapes = []
@@ -354,15 +351,13 @@ class ChunkSizeTuner:
         self.cached_arg_data = None
 
     @staticmethod
-    def _determine_favorable_chunk_size(fn, args, min_chunk_size, max_chunk_size):
+    def _determine_favorable_chunk_size(fn, args, max_chunk_size):
         logging.info("Tuning chunk size...")
 
-        if min_chunk_size >= max_chunk_size:
-            return min_chunk_size
-
         candidates = [2**l for l in range(int(math.log(max_chunk_size, 2)) + 1)]
-        candidates = [c for c in candidates if c > min_chunk_size]
-        candidates = [min_chunk_size] + candidates
+        # If someone passed a chunk size that wasn't a power of two, consider it as well
+        if candidates[-1] < max_chunk_size:
+            candidates.append(max_chunk_size)
 
         def test_chunk_size(chunk_size):
             try:
@@ -388,6 +383,9 @@ class ChunkSizeTuner:
         return candidates[lo]
 
     def _compare_arg_caches(self, ac1, ac2):
+        # When recursing this tests that tensors have the same rank
+        if len(ac1) != len(ac2):
+            return False
         consistent = True
         for a1, a2 in zip(ac1, ac2, strict=True):
             assert type(a1) is type(a2)
@@ -406,18 +404,14 @@ class ChunkSizeTuner:
         self,
         representative_fn: Callable,
         args: tuple[Any],
-        min_chunk_size: int,
-        # Heuristically, runtimes for most of the modules in the network
-        # plateau earlier than this on all GPUs I've run the model on.
-        max_chunk_size=DEFAULT_MAX_CHUNK_SIZE,
+        max_chunk_size: int,
     ) -> int:
         def remove_tensors(a):
-            return a.shape if type(a) is torch.Tensor else a
+            return (a.shape, a.dtype.itemsize) if type(a) is torch.Tensor else a
 
         arg_data = tree_map(remove_tensors, args, object)
         if self.cached_arg_data is not None:
             # If args have changed shape/value, we need to re-tune
-            assert len(self.cached_arg_data) == len(arg_data)
             consistent = self._compare_arg_caches(self.cached_arg_data, arg_data)
         else:
             # Otherwise, we can reuse the precomputed value
@@ -427,7 +421,6 @@ class ChunkSizeTuner:
             self.cached_chunk_size = self._determine_favorable_chunk_size(
                 fn=representative_fn,
                 args=args,
-                min_chunk_size=min_chunk_size,
                 max_chunk_size=max_chunk_size,
             )
             self.cached_arg_data = arg_data
