@@ -150,7 +150,6 @@ class DiffusionModule(nn.Module):
         use_lma: bool = False,
         use_high_precision_attention: bool = False,
         _mask_trans: bool = True,
-        combined_restraints=None,
     ) -> torch.Tensor:
         """
         Args:
@@ -305,6 +304,7 @@ class SampleDiffusion(nn.Module):
         use_lma: bool = False,
         use_high_precision_attention: bool = False,
         _mask_trans: bool = True,
+        combined_restraints=None,
     ) -> torch.Tensor:
         """Run the standard OF3 denoising loop from a chosen schedule index."""
         for tau, c_tau in enumerate(noise_schedule[1:]):

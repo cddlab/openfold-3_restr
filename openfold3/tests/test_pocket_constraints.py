@@ -618,6 +618,14 @@ class _IdentityDenoiser(torch.nn.Module):
         return xl_noisy
 
 
+class _RecordingRestraints:
+    def __init__(self):
+        self.calls = []
+
+    def minimize(self, coords, step, sigma):
+        self.calls.append((tuple(coords.shape), step, sigma))
+
+
 def _pocket_sampling_batch_without_jitter(
     batch_dim: int = 1,
 ) -> dict[str, torch.Tensor]:
@@ -728,6 +736,34 @@ def test_sample_diffusion_runs_second_pass_when_pocket_sampling_enabled():
 
     assert result.shape == (1, 2, 5, 3)
     assert denoiser.calls == 3
+
+
+def test_sample_diffusion_applies_restraints_to_both_pocket_rollouts():
+    restraints = _RecordingRestraints()
+    sampler = SampleDiffusion(
+        gamma_0=0.0,
+        gamma_min=0.0,
+        noise_scale=0.0,
+        step_scale=1.0,
+        diffusion_module=_IdentityDenoiser(),
+    )
+
+    with torch.no_grad():
+        sampler(
+            batch=_pocket_sampling_batch_without_jitter(),
+            si_input=torch.zeros(1, 1, 1),
+            si_trunk=torch.zeros(1, 1, 1),
+            zij_trunk=torch.zeros(1, 1, 1, 1),
+            noise_schedule=torch.tensor([1.0, 0.5, 0.1]),
+            no_rollout_samples=2,
+            combined_restraints=restraints,
+        )
+
+    assert restraints.calls == [
+        ((2, 5, 3), 0, 1.0),
+        ((2, 5, 3), 1, 0.5),
+        ((2, 5, 3), 1, 0.5),
+    ]
 
 
 def test_sample_diffusion_applies_independent_rigid_ligand_jitter(monkeypatch):
