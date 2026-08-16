@@ -211,12 +211,9 @@ def processed_reference_molecule_from_atom_array(
     # Convert to RDKit mol
     mol = to_mol(atom_array, kekulize=True)
     Chem.SanitizeMol(mol)
-    # Capture the CCD ideal conformer's chirality into atom chiral tags BEFORE removing
-    # the conformer. biotite's to_mol does not perceive stereochemistry, so without this
-    # the mol reaches ETKDG (processed_reference_molecule_from_mol) with no chiral tags
-    # and EmbedMolecule picks a RANDOM enantiomer -> wrong-handed ref_pos. Training uses
-    # the SDF path (tags present), so this aligns inference with training.
-    Chem.AssignStereochemistryFrom3D(mol)
+    if np.all(atom_array.molecule_type_id == MoleculeType.LIGAND):
+        # Preserve the CCD conformer's chirality before removing its coordinates.
+        Chem.AssignStereochemistryFrom3D(mol)
     mol.RemoveConformer(0)
 
     return processed_reference_molecule_from_mol(
@@ -635,6 +632,10 @@ def structure_with_ref_mols_from_query(query: Query) -> StructureWithReferenceMo
             segment_atom_array.set_annotation(
                 "entity_id",
                 np.repeat(entity_to_id[representation], len(segment_atom_array)),
+            )
+            segment_atom_array.set_annotation(
+                "is_cyclic",
+                np.repeat(chain.cyclic, len(segment_atom_array)),
             )
 
             # RGI per-ligand conformer_restraints opt-in (default off; set
