@@ -15,11 +15,16 @@
 import textwrap
 
 import pytest  # noqa: F401  - used for pytest tmp fixture
+import torch
 
 from openfold3.core.config import config_utils
 from openfold3.core.data.framework.data_module import (
     DataModuleConfig,
     InferenceDataModule,
+    openfold_batch_collator,
+)
+from openfold3.core.data.framework.single_datasets.inference import (
+    source_smiles_by_chain,
 )
 from openfold3.core.data.pipelines.preprocessing.template import (
     TemplatePreprocessorSettings,
@@ -393,6 +398,9 @@ class TestInferenceConfigConstruction:
             query_set=inference_set,
             template_preprocessor_settings=TemplatePreprocessorSettings(mode="predict"),
         )
+        assert source_smiles_by_chain(inference_set.queries["query_1"]) == {
+            "Z": "CC(=O)OC1C[NH+]2CCC1CC2"
+        }
         inference_spec = InferenceDatasetSpec(config=inference_config)
         dataset_specs = [inference_spec]
 
@@ -420,3 +428,11 @@ class TestInferenceConfigConstruction:
         assert len(dataloader) == 1
         it = iter(dataloader)
         next(it)  # this is currently causing a segfault in Py3.13
+
+
+def test_source_smiles_metadata_is_not_tensor_collated():
+    smiles_by_chain = {"Z": "F/C=C/Cl"}
+    batch = openfold_batch_collator(
+        [{"smiles_by_chain": smiles_by_chain, "feature": torch.ones(1)}]
+    )
+    assert batch["smiles_by_chain"] == [smiles_by_chain]

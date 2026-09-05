@@ -57,9 +57,9 @@ def dict_multimap(fn, dicts):
     new_dict = {}
     for k, v in first.items():
         all_v = [d[k] for d in dicts]
-        # restraints_config is a per-structure config dict, not a tensor tree;
-        # carry it through verbatim (like AtomArray/str) instead of recursing.
-        if k == "restraints_config":
+        # These are per-structure metadata dicts, not tensor trees; carry them
+        # through verbatim (like AtomArray/str) instead of recursing.
+        if k in ("restraints_config", "smiles_by_chain"):
             new_dict[k] = all_v
         elif isinstance(v, dict):
             new_dict[k] = dict_multimap(fn, all_v)

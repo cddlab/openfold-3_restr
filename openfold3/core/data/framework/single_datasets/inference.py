@@ -75,6 +75,16 @@ from openfold3.projects.of3_all_atom.config.inference_query_format import (
 logger = logging.getLogger(__name__)
 
 
+def source_smiles_by_chain(query: Query) -> dict[str, str]:
+    """Map every SMILES ligand copy's chain ID to its original graph string."""
+    return {
+        chain_id: chain.smiles
+        for chain in query.chains
+        if chain.smiles is not None
+        for chain_id in chain.chain_ids
+    }
+
+
 @register_dataset
 class InferenceDataset(Dataset):
     """Dataset class for running inference on a set of queries."""
@@ -319,6 +329,9 @@ class InferenceDataset(Dataset):
         # restraint-guided inference config (per-query), carried alongside the
         # atom_array into the diffusion loop; None when RGI is unused.
         features["restraints_config"] = query.restraints_config
+        # Preserve source-graph stereochemistry for SMILES ligands. Reference
+        # conformer tensors carry coordinates and bond orders but not @/@@ or E/Z.
+        features["smiles_by_chain"] = source_smiles_by_chain(query)
         n_tokens = get_token_count(preprocessed_atom_array)
 
         # Target structure and conformer features

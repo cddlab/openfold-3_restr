@@ -409,6 +409,11 @@ class OpenFold3(nn.Module):
                 _aa = batch["atom_array"]
                 if isinstance(_aa, list):
                     _aa = _aa[0]
+                _smiles_by_chain = batch.get("smiles_by_chain")
+                if isinstance(_smiles_by_chain, list):
+                    _smiles_by_chain = (
+                        _smiles_by_chain[0] if _smiles_by_chain else None
+                    )
                 # OpenFold zeroes atom_array.coord; supply the real reference
                 # conformer coords (ref_pos, [*, N_atom, 3]) so conformer restraint
                 # targets are built from real geometry. Collapse leading batch dims
@@ -426,6 +431,7 @@ class OpenFold3(nn.Module):
                         _aa,
                         int(batch["atom_mask"].shape[-1]),
                         ref_coords=_ref_coords,
+                        smiles_by_chain=_smiles_by_chain,
                     ),
                     nbatch=no_rollout_samples,
                     config=_rc,
