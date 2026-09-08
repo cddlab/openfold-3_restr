@@ -403,8 +403,8 @@ class OpenFold3(nn.Module):
             if isinstance(_rc, list):
                 _rc = _rc[0] if _rc else None
             if _rc:
-                from rgi_utils.combined import CombinedRestraints
-                from rgi_utils.openfold3.adapter import Openfold3Adapter
+                from rgi_toolkit.combined import CombinedRestraints
+                from rgi_toolkit.openfold3.adapter import Openfold3Adapter
 
                 _aa = batch["atom_array"]
                 if isinstance(_aa, list):
