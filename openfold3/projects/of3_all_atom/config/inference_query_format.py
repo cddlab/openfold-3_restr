@@ -182,9 +182,18 @@ class InferenceQuerySet(BaseModel):
     @classmethod
     def from_json(cls, json_path: FilePath) -> "InferenceQuerySet":
         """Load InferenceQuerySet from a JSON file."""
+        from pathlib import Path
+
         with open(json_path) as f:
-            data = f.read()
-        return cls.model_validate_json(data)
+            queries = cls.model_validate_json(f.read())
+        for query in queries.queries.values():
+            if query.restraints_config is not None:
+                from rgi_toolkit.config import resolve_restraints_config
+
+                query.restraints_config = resolve_restraints_config(
+                    query.restraints_config, base_dir=Path(json_path).parent
+                )
+        return queries
 
     def model_post_init(self, __context: Any) -> None:
         """Add query name to the query objects."""
