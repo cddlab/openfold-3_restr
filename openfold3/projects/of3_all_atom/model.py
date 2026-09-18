@@ -47,7 +47,7 @@ from openfold3.core.utils.permutation_alignment import (
 )
 from openfold3.core.utils.tensor_utils import add, tensor_tree_map
 
-MODEL_VERSION = torch.tensor([1, 0, 0], dtype=torch.float32)
+MODEL_VERSION = torch.tensor([2, 0, 0], dtype=torch.float32)
 
 
 class OffloadModules(Enum):
@@ -309,8 +309,8 @@ class OpenFold3(nn.Module):
                 s, z = self.pairformer_stack(
                     s=s,
                     z=z,
-                    single_mask=token_mask.to(dtype=z.dtype),
-                    pair_mask=pair_mask.to(dtype=s.dtype),
+                    single_mask=token_mask.to(dtype=s.dtype),
+                    pair_mask=pair_mask.to(dtype=z.dtype),
                     chunk_size=mode_mem_settings.chunk_size,
                     use_deepspeed_evo_attention=mode_mem_settings.use_deepspeed_evo_attention,
                     use_triton_triangle_kernels=mode_mem_settings.use_triton_triangle_kernels,
@@ -322,7 +322,7 @@ class OpenFold3(nn.Module):
 
         del s_init, z_init
 
-        return s_input, s, z
+        return s_input.float(), s.float(), z.float()
 
     def _rollout(
         self,
@@ -411,9 +411,7 @@ class OpenFold3(nn.Module):
                     _aa = _aa[0]
                 _smiles_by_chain = batch.get("smiles_by_chain")
                 if isinstance(_smiles_by_chain, list):
-                    _smiles_by_chain = (
-                        _smiles_by_chain[0] if _smiles_by_chain else None
-                    )
+                    _smiles_by_chain = _smiles_by_chain[0] if _smiles_by_chain else None
                 # OpenFold zeroes atom_array.coord; supply the real reference
                 # conformer coords (ref_pos, [*, N_atom, 3]) so conformer restraint
                 # targets are built from real geometry. Collapse leading batch dims
@@ -437,6 +435,7 @@ class OpenFold3(nn.Module):
                     config=_rc,
                 )
 
+            # TODO: Add back triton and cueq APB kernel
             atom_positions_predicted = self.sample_diffusion(
                 batch=batch,
                 si_input=si_input,
@@ -446,20 +445,15 @@ class OpenFold3(nn.Module):
                 no_rollout_samples=no_rollout_samples,
                 use_conditioning=True,
                 chunk_size=mode_mem_settings.chunk_size,
-                use_deepspeed_evo_attention=mode_mem_settings.use_deepspeed_evo_attention,
-                use_triton_triangle_kernels=mode_mem_settings.use_triton_triangle_kernels,
-                use_cueq_triangle_kernels=mode_mem_settings.use_cueq_triangle_kernels,
-                use_lma=mode_mem_settings.use_lma,
+                use_high_precision_attention=True,
                 _mask_trans=True,
                 combined_restraints=combined_restraints,
             )
 
             if combined_restraints is not None:
                 _c = atom_positions_predicted
-                # No polish: the per-step minimize on the denoised x0 realises the restraint
-                # over the trajectory (the converged late-step coords make the integrator's
-                # step_scale extrapolation collapse to ~denoised, leaving the output on
-                # target). finalize logs the residual only.
+                # Per-step minimization applies restraints to the denoised x0.
+                # Finalization records the residual without a separate polish.
                 combined_restraints.finalize(
                     _c.reshape(-1, _c.shape[-2], _c.shape[-1]), no_rollout_steps
                 )

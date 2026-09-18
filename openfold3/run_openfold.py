@@ -26,7 +26,10 @@ from pathlib import Path
 import click
 
 from openfold3.core.config import config_utils
-from openfold3.entry_points.import_utils import _torch_gpu_setup
+from openfold3.entry_points.import_utils import (
+    _configure_torch_backend,
+    _enable_tf32,
+)
 from openfold3.entry_points.parameters import DEFAULT_CACHE_PATH
 
 logger = logging.getLogger(__name__)
@@ -53,9 +56,23 @@ def cli():
     type=int,
     help="Initial seed for data pipeline. Defaults to seed if not specified.",
 )
-def train(runner_yaml: Path, seed: int | None = None, data_seed: int | None = None):
+@click.option(
+    "--use_tf32",
+    type=bool,
+    default=False,
+    help="Use tf32 precision",
+)
+def train(
+    runner_yaml: Path,
+    seed: int | None = None,
+    data_seed: int | None = None,
+    use_tf32: bool = False,
+):
     """Perform a training experiment with a preprepared dataset cache."""
-    _torch_gpu_setup()
+    _configure_torch_backend()
+    if use_tf32:
+        _enable_tf32()
+
     from openfold3.entry_points.experiment_runner import (
         TrainingExperimentRunner,
     )
@@ -154,6 +171,12 @@ def train(runner_yaml: Path, seed: int | None = None, data_seed: int | None = No
     required=False,
     help="Output directory for writing results",
 )
+@click.option(
+    "--use_tf32",
+    type=bool,
+    default=True,
+    help="Use tf32 precision",
+)
 def predict(
     query_json: Path,
     inference_ckpt_path: Path | None = None,
@@ -164,9 +187,12 @@ def predict(
     use_msa_server: bool | None = None,
     use_templates: bool | None = None,
     output_dir: Path | None = None,
+    use_tf32: bool = True,
 ):
     """Perform inference on a set of queries defined in the query_json."""
-    _torch_gpu_setup()
+    _configure_torch_backend()
+    if use_tf32:
+        _enable_tf32()
 
     from openfold3.entry_points.experiment_runner import (
         InferenceExperimentRunner,
@@ -217,7 +243,7 @@ def predict(
         expt_runner.setup()
         expt_runner.run(query_set)
     except BaseException:
-        expt_runner.cleanup_msa_workspace()
+        expt_runner.cleanup_intermediates()
         raise
     expt_runner.cleanup()
 
@@ -256,7 +282,6 @@ def align_msa_server(
     ``query_msa.json`` whose alignment paths point to files in ``output_dir``.
     Server settings can be supplied with ``msa_computation_settings_yaml``.
     """
-    _torch_gpu_setup()
     from openfold3.core.data.tools.colabfold_msa_server import (
         MsaComputationSettings,
         preprocess_colabfold_msas,
@@ -267,6 +292,9 @@ def align_msa_server(
 
     msa_settings = MsaComputationSettings.from_config_with_cli_override(
         output_dir, msa_computation_settings_yaml
+    )
+    msa_settings._set_workspace_root(
+        output_dir / "openfold3_intermediates" / "colabfold_msas"
     )
     try:
         query_set = InferenceQuerySet.from_json(query_json)
